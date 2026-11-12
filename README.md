@@ -1,12 +1,86 @@
 # Prompt Untangle (開発完全特化・指示の型100選 絞り込みナビゲーター Pro)
 
-**「AIに開発を頼む指示の型 100選」**を完全内蔵した、**開発完全特化型**の対話式要件定義＆成果物生成スキルです。
+「AIに開発を頼む指示の型 100選」を完全内蔵した、開発完全特化型の対話式要件定義＆成果物生成スキルです。
 
-「AIに開発を頼みたいけれど、どこをどのように頼めばいいかわからない」状態からスタートし、AIがユーザーの前回の回答を深く咀嚼して次の質問をその場で自律考案。外枠から核心へと**どんどん絞り込んで**いきます。
+「AIに開発を頼みたいけれど、どこをどのように頼めばいいかわからない」状態からスタートし、AIがユーザーの前回の回答を深く咀嚼して次の質問をその場で自律考案。外枠から核心へとどんどん絞り込んでいきます。
 
-さらに、**リポジトリ自動先読み**、**UIワイヤーフレーム自動描画**、**セキュリティ事前監査**、**4つの出力形式（プロンプト／設計書.md／GitHub Issues等）**を標準搭載しています。
+さらに、リポジトリ自動先読み、UIワイヤーフレーム自動描画、セキュリティ事前監査、4つの出力形式（プロンプト／設計書.md／GitHub Issues等）を標準搭載しています。
 
-**Claude**、**Codex (OpenAI / Cursor)**、**Gemini (Antigravity / Gemini CLI)** の3大プラットフォームに対応しています。
+Claude、Codex (OpenAI / Cursor)、Gemini (Antigravity / Gemini CLI) の3大プラットフォームに対応しています。
+
+---
+
+## インストール方法 (Installation)
+
+### 方法1: クイック自動インストール (推奨)
+
+ターミナルで以下のコマンドを実行すると、Gemini / Antigravity および Claude Code への設定が一括で完了します：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/HR0101/prompt-untangle/main/scripts/install.sh | bash
+```
+
+---
+
+### 方法2: ツール別の手動インストール
+
+#### 1. Google Antigravity / Gemini CLI に導入する場合
+スキルディレクトリに本リポジトリを直接クローンします：
+
+```bash
+mkdir -p ~/.gemini/skills
+git clone https://github.com/HR0101/prompt-untangle.git ~/.gemini/skills/prompt-untangle
+```
+
+- **使い方**:
+  - Antigravity チャットまたは Gemini CLI 上で、`/prompt-untangle` と入力するか、「開発の要件を整理して」「AIに開発を頼みたい」と話しかけるだけで自動起動します。
+
+---
+
+#### 2. Claude (Claude Code / Claude.ai) に導入する場合
+
+- **Claude Code (ターミナルCLI) のグローバルコマンドとして追加**:
+  ```bash
+  mkdir -p ~/.claude/commands
+  curl -fsSL https://raw.githubusercontent.com/HR0101/prompt-untangle/main/claude/.claude/commands/untangle.md -o ~/.claude/commands/untangle.md
+  ```
+  ターミナルで `claude` 起動後、`/untangle` で即座に対話型ヒアリングが開始されます。
+
+- **特定プロジェクトに組み込む場合**:
+  リポジトリ内の `claude/CLAUDE.md` を自身のプロジェクトルートに配置します：
+  ```bash
+  cp -r /path/to/prompt-untangle/claude/.claude ./
+  cp /path/to/prompt-untangle/claude/CLAUDE.md ./
+  ```
+
+- **Claude.ai (Web / Desktop)**:
+  `claude/prompt-untangle.md` の内容をコピーし、Projects の「Project Instructions」またはチャットの先頭プロンプトに貼り付けて使用します。
+
+---
+
+#### 3. Cursor / VSCode / GitHub Copilot に導入する場合
+
+- **プロジェクトルールとして追加 (推奨)**:
+  エージェント標準仕様である `AGENTS.md` をプロジェクトルートに配置します：
+  ```bash
+  cp /path/to/prompt-untangle/codex/AGENTS.md ./
+  ```
+  Cursor や Copilot が自動的にこのルールを先読みし、対話型絞り込みモードで動作します。
+
+- **.cursorrules に組み込む場合**:
+  ```bash
+  cat /path/to/prompt-untangle/codex/prompt-untangle.md >> .cursorrules
+  ```
+
+---
+
+#### 4. ChatGPT (GPT-4o) / OpenAI Custom GPTs に導入する場合
+`codex/prompt-untangle.md` の内容をコピーし、ChatGPT の「Custom Instructions（カスタム指示）」または GPTs の「Instructions」に貼り付けます。
+
+---
+
+#### 5. 単発のWebチャットで即座に使いたい場合 (Universal)
+`universal/UNIVERSAL_PROMPT.md` の内容をコピーして、任意のチャット画面に貼り付けるだけで、即座にヒアリングが開始されます。
 
 ---
 
@@ -65,13 +139,13 @@
 ## 選べる4つの出力形式（Step 4）
 
 - **[形式A] 次工程のAIにそのまま貼る『超高精度 実行指示プロンプト』**
- *(Claude Code, Codex, Geminiに貼り付けて即座にコード実装させたい場合)*
+  *(Claude Code, Codex, Geminiに貼り付けて即座にコード実装させたい場合)*
 - **[形式B] リポジトリ保存用の『設計書・仕様書・計画書 (SPEC.md / PLAN.md)』**
- *(チーム共有やドキュメント保存用。構造化されたMarkdownとして出力・保存)*
+  *(チーム共有やドキュメント保存用。構造化されたMarkdownとして出力・保存)*
 - **[形式C] 両方（設計書.md ＋ 実行指示プロンプト）** (推奨)
   *(仕様を固めるドキュメントと、それを動かすプロンプトの両方が手に入る完全版)*
 - **[形式D] GitHub Issues & PR分割チケット形式**
- *(GitHubにそのまま登録できるIssue集＋PRテンプレート＋アトミックコミット計画)*
+  *(GitHubにそのまま登録できるIssue集＋PRテンプレート＋アトミックコミット計画)*
 
 ---
 
@@ -81,6 +155,8 @@
 prompt-untangle/
 ├── README.md                      # 本ドキュメント
 ├── SKILL.md                       # Antigravity / Gemini CLI 標準スキル定義（Pro版）
+├── scripts/
+│   └── install.sh                 # 自動インストールシェルスクリプト
 ├── references/
 │   └── patterns-100.md            # 指示の型100選 完全リファレンス (001〜100)
 ├── gemini/
