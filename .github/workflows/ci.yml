@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+# GITHUB_TOKEN をリポジトリの読み取りだけに絞る（最小権限）
+permissions:
+  contents: read
+
+# 同じブランチで新しい実行が始まったら，古い実行をキャンセルする
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-no-emoji:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Scan files for emojis
+        run: |
+          python3 - << 'PYEOF'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          # 絵文字として扱うコードポイントの範囲．
+          # 星(U+2605)や音符(U+266A)などの日本語でよく使う記号を巻き込まないよう，絵文字の領域に絞っている．
+          EMOJI_RANGES = [
+            (0x1F000, 0x1FAFF),  # 麻雀牌，国旗，顔，物，乗り物，補助絵文字など
+            (0x231A, 0x231B),
+            (0x23E9, 0x23EC),
+            (0x23F0, 0x23F0),
+            (0x23F3, 0x23F3),
+            (0x25FD, 0x25FE),
+            (0x2614, 0x2615),
+            (0x2648, 0x2653),
+            (0x267F, 0x267F),
+            (0x2693, 0x2693),
+            (0x26A0, 0x26A1),
+            (0x26AA, 0x26AB),
+            (0x26BD, 0x26BE),
+            (0x26C4, 0x26C5),
+            (0x26CE, 0x26CE),
+            (0x26D4, 0x26D4),
+            (0x26EA, 0x26EA),
+            (0x26F2, 0x26F3),
+            (0x26F5, 0x26F5),
+            (0x26FA, 0x26FA),
+            (0x26FD, 0x26FD),
+            (0x2705, 0x2705),
+            (0x270A, 0x270B),
+            (0x2714, 0x2714),
+            (0x2716, 0x2716),
+            (0x2728, 0x2728),
+            (0x274C, 0x274C),
+            (0x274E, 0x274E),
+            (0x2753, 0x2755),
+            (0x2757, 0x2757),
+            (0x2764, 0x2764),
+            (0x2795, 0x2797),
+            (0x27A1, 0x27A1),
+            (0x27B0, 0x27B0),
+            (0x27BF, 0x27BF),
+            (0x2B05, 0x2B07),
+            (0x2B1B, 0x2B1C),
+            (0x2B50, 0x2B50),
+            (0x2B55, 0x2B55),
+            (0xFE0F, 0xFE0F),    # 絵文字表示セレクタ（記号を絵文字として表示させる指定）
+          ]
+
+          # 検査対象外のファイル名（機械生成で人が編集しないもの）
+          EXCLUDED_FILE_NAMES = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
+
+          # 絵文字を許可するパスの先頭部分．必要になったらここに追加する
+          ALLOWED_PATH_PREFIXES = []
+
+          # バイナリ判定のために先頭から調べるバイト数
+          BINARY_CHECK_BYTES = 8000
+
+          # 終了コード
+          EXIT_FOUND = 1
+          EXIT_GIT_ERROR = 2
+
+
+          def buildEmojiPattern():
+            # 範囲の一覧から正規表現の文字クラスを組み立てる
+            parts = [f"{chr(start)}-{chr(end)}" for start, end in EMOJI_RANGES]
+            return re.compile("[" + "".join(parts) + "]")
+
+
+          EMOJI_PATTERN = buildEmojiPattern()
+
+
+          def listTrackedFiles():
+            # git 管理下のファイルだけを取得する．.git や node_modules，.gitignore 対象は自動で除外される
+            try:
+              result = subprocess.run(["git", "ls-files", "-z"], check=True, capture_output=True)
+            except (subprocess.CalledProcessError, FileNotFoundError) as error:
+              print(f"::error::git ls-files の実行に失敗しました: {error}")
+              sys.exit(EXIT_GIT_ERROR)
+            return [path for path in os.fsdecode(result.stdout).split("\0") if path]
+
+
+          def readTextFile(path):
+            # テキストとして読めたら文字列を，読めなければ None を返す
+            try:
+              with open(path, "rb") as file:
+                data = file.read()
+            except OSError as error:
+              print(f"::warning file={path}::読み込めませんでした: {error}")
+              return None
+            # NUL バイトを含むものはバイナリとして黙ってスキップする
+            if b"\0" in data[:BINARY_CHECK_BYTES]:
+              return None
+            try:
+              return data.decode("utf-8")
+            except UnicodeDecodeError:
+              print(f"::warning file={path}::UTF-8 として読めないためスキップしました")
+              return None
+
+
+          def findEmojis(text):
+            # 絵文字の位置（行，桁）とコードポイントの一覧を返す
+            found = []
+            for lineNumber, line in enumerate(text.split("\n"), start=1):
+              for match in EMOJI_PATTERN.finditer(line):
+                found.append((lineNumber, match.start() + 1, ord(match.group())))
+            return found
+
+
+          def isSkippedPath(path):
+            if os.path.basename(path) in EXCLUDED_FILE_NAMES:
+              return True
+            return any(path.startswith(prefix) for prefix in ALLOWED_PATH_PREFIXES)
+
+
+          def main():
+            errorCount = 0
+            for path in listTrackedFiles():
+              # サブモジュールや壊れたリンクなど，通常のファイルでないものは対象外
+              if isSkippedPath(path) or not os.path.isfile(path):
+                continue
+              text = readTextFile(path)
+              if text is None:
+                continue
+              for lineNumber, column, codePoint in findEmojis(text):
+                # ::error 形式にすると GitHub の PR 画面の該当行に直接表示される
+                print(f"::error file={path},line={lineNumber},col={column}::絵文字 U+{codePoint:04X} が含まれています")
+                errorCount += 1
+            if errorCount > 0:
+              print(f"チェック失敗: 絵文字を {errorCount} 件検出しました．")
+              sys.exit(EXIT_FOUND)
+            print("成功: 絵文字は検出されませんでした．")
+
+
+          if __name__ == "__main__":
+            main()
+          PYEOF
