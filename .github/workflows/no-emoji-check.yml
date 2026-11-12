@@ -1,0 +1,57 @@
+name: Lint No Emoji
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-emojis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Scan files for emojis
+        run: |
+          python - << 'EOF'
+          import os
+          import re
+          import sys
+
+          emoji_regex = re.compile(
+              r"[\U00010000-\U0010ffff]"
+              r"|[\u2600-\u26ff]"
+              r"|[\u2700-\u27bf]"
+              r"|[\u2300-\u23ff]"
+              r"|[\u2b50-\u2b55]"
+              r"|[\u203c\u2049\u2139\u2194-\u21aa\u231a\u231b\u2328\u23cf\u24c2]"
+              r"|[\ufe00-\ufe0f]"
+          )
+
+          errors = 0
+          for root, dirs, files in os.walk("."):
+              if ".git" in root:
+                  continue
+              for f in files:
+                  if f.endswith((".md", ".txt", ".json", ".yaml", ".yml", ".sh")):
+                      path = os.path.join(root, f)
+                      with open(path, "r", encoding="utf-8") as file:
+                          text = file.read()
+                      matches = emoji_regex.findall(text)
+                      if matches:
+                          print(f"Error: Emoji detected in {path}: {set(matches)}")
+                          errors += 1
+
+          if errors > 0:
+              print(f"Check failed: {errors} file(s) contain emojis.")
+              sys.exit(1)
+
+          print("Success: No emojis detected across all files.")
+          EOF
