@@ -1,0 +1,11 @@
+# Presentation files
+presentation.html
+
+# Images
+*.jpeg
+*.jpg
+*.png
+
+# OS & Temp
+.DS_Store
+Thumbs.db
